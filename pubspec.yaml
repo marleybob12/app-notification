@@ -1,20 +1,19 @@
 name: app_lembretes
-description: "App de Lembretes com Firebase"
+description: "Aplicativo de Lembretes com Notificações Push"
 publish_to: 'none'
 
 version: 1.0.0+1
 
 environment:
-  sdk: ">=3.8.0 <4.0.0"
+  sdk: '>=3.8.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
 
-  # Firebase atualizado
-  firebase_core: ^4.2.1
-  cloud_firestore: ^6.1.0
-  firebase_auth: ^6.1.2
+  # Banco de dados SQLite
+  sqflite: ^2.3.0
+  path: ^1.9.1
 
   # Notificações Locais
   flutter_local_notifications: ^19.5.0
