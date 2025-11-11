@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/reminder_model.dart';
-import '../services/firestore_service.dart';
+import '../database/database_service.dart';
 import '../services/notification_service.dart';
 
 class AddEditScreen extends StatefulWidget {
@@ -15,7 +15,7 @@ class AddEditScreen extends StatefulWidget {
 
 class _AddEditScreenState extends State<AddEditScreen> {
   final _formKey = GlobalKey<FormState>();
-  final FirestoreService _firestoreService = FirestoreService();
+  final DatabaseService _databaseService = DatabaseService();
   final NotificationService _notificationService = NotificationService();
 
   late TextEditingController _titleController;
@@ -58,7 +58,8 @@ class _AddEditScreenState extends State<AddEditScreen> {
     // Se estiver editando, carrega os dados
     if (widget.reminder != null) {
       _titleController = TextEditingController(text: widget.reminder!.title);
-      _descriptionController = TextEditingController(text: widget.reminder!.description);
+      _descriptionController =
+          TextEditingController(text: widget.reminder!.description);
       _selectedDate = widget.reminder!.dateTime;
       _selectedTime = TimeOfDay.fromDateTime(widget.reminder!.dateTime);
       _selectedCategory = widget.reminder!.category;
@@ -102,165 +103,172 @@ class _AddEditScreenState extends State<AddEditScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Título
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Título',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.title),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Por favor, insira um título';
-                  }
-                  return null;
-                },
-                textCapitalization: TextCapitalization.sentences,
-              ),
-              const SizedBox(height: 16),
-
-              // Descrição
-              TextFormField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Descrição',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.description),
-                ),
-                maxLines: 3,
-                textCapitalization: TextCapitalization.sentences,
-              ),
-              const SizedBox(height: 16),
-
-              // Data
-              ListTile(
-                title: const Text('Data'),
-                subtitle: Text(DateFormat('dd/MM/yyyy').format(_selectedDate)),
-                leading: const Icon(Icons.calendar_today),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  side: BorderSide(color: Colors.grey.shade400),
-                ),
-                onTap: _selectDate,
-              ),
-              const SizedBox(height: 16),
-
-              // Hora
-              ListTile(
-                title: const Text('Hora'),
-                subtitle: Text(_selectedTime.format(context)),
-                leading: const Icon(Icons.access_time),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  side: BorderSide(color: Colors.grey.shade400),
-                ),
-                onTap: _selectTime,
-              ),
-              const SizedBox(height: 16),
-
-              // Categoria
-              DropdownButtonFormField<String>(
-                value: _selectedCategory,
-                decoration: const InputDecoration(
-                  labelText: 'Categoria',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.category),
-                ),
-                items: _categories.map((category) {
-                  return DropdownMenuItem(
-                    value: category,
-                    child: Text(category),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedCategory = value!;
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Cor
-              const Text(
-                'Cor do Lembrete',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: _colors.map((color) {
-                  final isSelected = color == _selectedColor;
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _selectedColor = color;
-                      });
-                    },
-                    child: Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isSelected ? Colors.black : Colors.transparent,
-                          width: 3,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black26,
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
+              padding: const EdgeInsets.all(16),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Título
+                    TextFormField(
+                      controller: _titleController,
+                      decoration: const InputDecoration(
+                        labelText: 'Título',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.title),
                       ),
-                      child: isSelected
-                          ? const Icon(Icons.check, color: Colors.white)
-                          : null,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Por favor, insira um título';
+                        }
+                        return null;
+                      },
+                      textCapitalization: TextCapitalization.sentences,
                     ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-              // Ativo/Inativo
-              if (isEditing)
-                SwitchListTile(
-                  title: const Text('Lembrete Ativo'),
-                  subtitle: Text(_isActive ? 'Notificações ativadas' : 'Notificações desativadas'),
-                  value: _isActive,
-                  onChanged: (value) {
-                    setState(() {
-                      _isActive = value;
-                    });
-                  },
-                ),
-              const SizedBox(height: 24),
+                    // Descrição
+                    TextFormField(
+                      controller: _descriptionController,
+                      decoration: const InputDecoration(
+                        labelText: 'Descrição',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.description),
+                      ),
+                      maxLines: 3,
+                      textCapitalization: TextCapitalization.sentences,
+                    ),
+                    const SizedBox(height: 16),
 
-              // Botão Salvar
-              ElevatedButton.icon(
-                onPressed: _saveReminder,
-                icon: const Icon(Icons.save),
-                label: Text(isEditing ? 'Salvar Alterações' : 'Criar Lembrete'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  textStyle: const TextStyle(fontSize: 16),
+                    // Data
+                    ListTile(
+                      title: const Text('Data'),
+                      subtitle: Text(
+                          DateFormat('dd/MM/yyyy', 'pt_BR').format(_selectedDate)),
+                      leading: const Icon(Icons.calendar_today),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(color: Colors.grey.shade400),
+                      ),
+                      onTap: _selectDate,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Hora
+                    ListTile(
+                      title: const Text('Hora'),
+                      subtitle: Text(_selectedTime.format(context)),
+                      leading: const Icon(Icons.access_time),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(color: Colors.grey.shade400),
+                      ),
+                      onTap: _selectTime,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Categoria
+                    DropdownButtonFormField<String>(
+                      value: _selectedCategory,
+                      decoration: const InputDecoration(
+                        labelText: 'Categoria',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.category),
+                      ),
+                      items: _categories.map((category) {
+                        return DropdownMenuItem(
+                          value: category,
+                          child: Text(category),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedCategory = value!;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Cor
+                    const Text(
+                      'Cor do Lembrete',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: _colors.map((color) {
+                        final isSelected = color == _selectedColor;
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedColor = color;
+                            });
+                          },
+                          child: Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isSelected
+                                    ? Colors.black
+                                    : Colors.transparent,
+                                width: 3,
+                              ),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Colors.black26,
+                                  blurRadius: 4,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: isSelected
+                                ? const Icon(Icons.check, color: Colors.white)
+                                : null,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Ativo/Inativo
+                    if (isEditing)
+                      SwitchListTile(
+                        title: const Text('Lembrete Ativo'),
+                        subtitle: Text(_isActive
+                            ? 'Notificações ativadas'
+                            : 'Notificações desativadas'),
+                        value: _isActive,
+                        onChanged: (value) {
+                          setState(() {
+                            _isActive = value;
+                          });
+                        },
+                      ),
+                    const SizedBox(height: 24),
+
+                    // Botão Salvar
+                    ElevatedButton.icon(
+                      onPressed: _saveReminder,
+                      icon: const Icon(Icons.save),
+                      label: Text(
+                          isEditing ? 'Salvar Alterações' : 'Criar Lembrete'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        textStyle: const TextStyle(fontSize: 16),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 
@@ -328,26 +336,26 @@ class _AddEditScreenState extends State<AddEditScreen> {
         isActive: _isActive,
       );
 
-      String? reminderId;
+      int reminderId;
 
       if (widget.reminder == null) {
         // Criar novo lembrete
-        reminderId = await _firestoreService.createReminder(reminder);
+        reminderId = await _databaseService.insertReminder(reminder);
       } else {
         // Atualizar lembrete existente
-        await _firestoreService.updateReminder(reminder);
-        reminderId = reminder.id;
+        await _databaseService.updateReminder(reminder);
+        reminderId = reminder.id!;
       }
 
       // Agendar/reagendar notificação se estiver ativo
-      if (_isActive && reminderId != null) {
+      if (_isActive) {
         await _notificationService.scheduleNotification(
           id: reminderId,
           title: reminder.title,
           body: reminder.description,
           scheduledDate: reminder.dateTime,
         );
-      } else if (!_isActive && reminderId != null) {
+      } else {
         // Cancelar notificação se foi desativado
         await _notificationService.cancelNotification(reminderId);
       }
@@ -361,7 +369,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.pop(context);
+        Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
@@ -417,8 +425,8 @@ class _AddEditScreenState extends State<AddEditScreen> {
       // Cancelar notificação
       await _notificationService.cancelNotification(widget.reminder!.id!);
 
-      // Deletar do Firestore
-      await _firestoreService.deleteReminder(widget.reminder!.id!);
+      // Deletar do banco de dados
+      await _databaseService.deleteReminder(widget.reminder!.id!);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -427,7 +435,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.pop(context);
+        Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
