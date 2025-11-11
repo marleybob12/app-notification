@@ -10,7 +10,7 @@ class NotificationService {
   NotificationService._internal();
 
   final FlutterLocalNotificationsPlugin _notifications =
-  FlutterLocalNotificationsPlugin();
+      FlutterLocalNotificationsPlugin();
 
   // Inicializar o serviço de notificações
   Future<void> init() async {
@@ -38,10 +38,8 @@ class NotificationService {
     // Criar canal de notificação para Android
     if (Platform.isAndroid) {
       await _createNotificationChannel();
+      await _requestPermissions();
     }
-
-    // Solicitar permissões
-    await _requestPermissions();
   }
 
   // Criar canal de notificação (Android)
@@ -57,7 +55,7 @@ class NotificationService {
 
     await _notifications
         .resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>()
+            AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(channel);
   }
 
@@ -65,39 +63,23 @@ class NotificationService {
   Future<void> _requestPermissions() async {
     if (Platform.isAndroid) {
       // Android 13+ requer permissão explícita para notificações
-      final status = await Permission.notification.request();
-
-      if (status.isDenied) {
-        print('Permissão de notificação negada');
-      }
+      await Permission.notification.request();
 
       // Solicitar permissão para alarmes exatos (Android 12+)
       if (await Permission.scheduleExactAlarm.isDenied) {
         await Permission.scheduleExactAlarm.request();
       }
-    } else if (Platform.isIOS) {
-      await _notifications
-          .resolvePlatformSpecificImplementation<
-          IOSFlutterLocalNotificationsPlugin>()
-          ?.requestPermissions(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
     }
   }
 
   // Agendar notificação
   Future<void> scheduleNotification({
-    required String id,
+    required int id,
     required String title,
     required String body,
     required DateTime scheduledDate,
   }) async {
     try {
-      // Converter ID string para int (usando hashCode)
-      final notificationId = id.hashCode;
-
       // Verificar se a data está no futuro
       if (scheduledDate.isBefore(DateTime.now())) {
         print('Data de agendamento está no passado');
@@ -133,27 +115,26 @@ class NotificationService {
 
       // Agendar notificação
       await _notifications.zonedSchedule(
-        notificationId,
+        id,
         title,
         body,
         scheduledTZ,
         notificationDetails,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
-        UILocalNotificationDateInterpretation.absoluteTime,
+            UILocalNotificationDateInterpretation.absoluteTime,
       );
 
-      print('Notificação agendada para: $scheduledTZ');
+      print('Notificação agendada para: $scheduledTZ (ID: $id)');
     } catch (e) {
       print('Erro ao agendar notificação: $e');
     }
   }
 
   // Cancelar notificação específica
-  Future<void> cancelNotification(String id) async {
+  Future<void> cancelNotification(int id) async {
     try {
-      final notificationId = id.hashCode;
-      await _notifications.cancel(notificationId);
+      await _notifications.cancel(id);
       print('Notificação cancelada: $id');
     } catch (e) {
       print('Erro ao cancelar notificação: $e');
@@ -172,13 +153,11 @@ class NotificationService {
 
   // Mostrar notificação imediata
   Future<void> showNotification({
-    required String id,
+    required int id,
     required String title,
     required String body,
   }) async {
     try {
-      final notificationId = id.hashCode;
-
       const androidDetails = AndroidNotificationDetails(
         'lembretes_channel',
         'Lembretes',
@@ -199,7 +178,7 @@ class NotificationService {
       );
 
       await _notifications.show(
-        notificationId,
+        id,
         title,
         body,
         notificationDetails,
@@ -212,7 +191,6 @@ class NotificationService {
   // Callback quando notificação é tocada
   void _onNotificationTap(NotificationResponse response) {
     print('Notificação tocada: ${response.payload}');
-    // Aqui você pode navegar para uma tela específica ou realizar alguma ação
   }
 
   // Verificar se há notificações pendentes
