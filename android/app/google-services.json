@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "939616711435",
+    "project_id": "pam-progamacao--de-aplimobile",
+    "storage_bucket": "pam-progamacao--de-aplimobile.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:939616711435:android:7279cd7401ede17a6fe80e",
+        "android_client_info": {
+          "package_name": "com.exemplo.app_lembretes"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQfkbjgRHJlRqknPk0YYQL57YM99RETYU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
