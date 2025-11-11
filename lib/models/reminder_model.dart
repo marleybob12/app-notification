@@ -1,7 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 class Reminder {
-  String? id; // ID do documento no Firestore
+  int? id;
   String title;
   String description;
   DateTime dateTime;
@@ -19,42 +17,35 @@ class Reminder {
     this.isActive = true,
   });
 
-  // Converter de Map (Firestore) para Reminder
-  factory Reminder.fromMap(Map<String, dynamic> map, String documentId) {
+  // Converter de Map (SQLite) para Reminder
+  factory Reminder.fromMap(Map<String, dynamic> map) {
     return Reminder(
-      id: documentId,
-      title: map['title'] ?? '',
-      description: map['description'] ?? '',
-      dateTime: (map['dateTime'] as Timestamp).toDate(),
-      category: map['category'] ?? '',
-      color: map['color'] ?? 0xFF4CAF50,
-      isActive: map['isActive'] ?? true,
+      id: map['id'] as int?,
+      title: map['title'] as String,
+      description: map['description'] as String,
+      dateTime: DateTime.parse(map['dateTime'] as String),
+      category: map['category'] as String,
+      color: map['color'] as int,
+      isActive: (map['isActive'] as int) == 1,
     );
   }
 
-  // Converter de Reminder para Map (Firestore)
+  // Converter de Reminder para Map (SQLite)
   Map<String, dynamic> toMap() {
     return {
+      'id': id,
       'title': title,
       'description': description,
-      'dateTime': Timestamp.fromDate(dateTime),
+      'dateTime': dateTime.toIso8601String(),
       'category': category,
       'color': color,
-      'isActive': isActive,
-      'createdAt': FieldValue.serverTimestamp(),
+      'isActive': isActive ? 1 : 0,
     };
   }
 
-  // Para atualização (não inclui createdAt novamente)
-  Map<String, dynamic> toUpdateMap() {
-    return {
-      'title': title,
-      'description': description,
-      'dateTime': Timestamp.fromDate(dateTime),
-      'category': category,
-      'color': color,
-      'isActive': isActive,
-      'updatedAt': FieldValue.serverTimestamp(),
-    };
+  // Para depuração
+  @override
+  String toString() {
+    return 'Reminder{id: $id, title: $title, dateTime: $dateTime, isActive: $isActive}';
   }
 }
