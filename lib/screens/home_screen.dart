@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/reminder_model.dart';
-import '../services/firestore_service.dart';
+import '../database/database_service.dart';
 import '../services/notification_service.dart';
 import 'add_edit_screen.dart';
 
@@ -13,10 +13,50 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final FirestoreService _firestoreService = FirestoreService();
+  final DatabaseService _databaseService = DatabaseService();
   final NotificationService _notificationService = NotificationService();
 
+  List<Reminder> _reminders = [];
   bool _showOnlyActive = false;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReminders();
+  }
+
+  // Carregar lembretes do banco de dados
+  Future<void> _loadReminders() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final reminders = _showOnlyActive
+          ? await _databaseService.getActiveReminders()
+          : await _databaseService.getAllReminders();
+
+      if (mounted) {
+        setState(() {
+          _reminders = reminders;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao carregar lembretes: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,87 +66,24 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           // Filtro: Mostrar apenas ativos
           IconButton(
-            icon: Icon(_showOnlyActive ? Icons.filter_alt : Icons.filter_alt_outlined),
+            icon: Icon(_showOnlyActive
+                ? Icons.filter_alt
+                : Icons.filter_alt_outlined),
             onPressed: () {
               setState(() {
                 _showOnlyActive = !_showOnlyActive;
               });
+              _loadReminders();
             },
             tooltip: _showOnlyActive ? 'Mostrar Todos' : 'Apenas Ativos',
           ),
         ],
       ),
-      body: StreamBuilder<List<Reminder>>(
-        stream: _showOnlyActive
-            ? _firestoreService.getActiveReminders()
-            : _firestoreService.getAllReminders(),
-        builder: (context, snapshot) {
-          // Estado de carregamento
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          // Erro
-          if (snapshot.hasError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 60, color: Colors.red),
-                  const SizedBox(height: 16),
-                  Text('Erro: ${snapshot.error}'),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () {
-                      setState(() {}); // Recarregar
-                    },
-                    child: const Text('Tentar Novamente'),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          // Lista vazia
-          final reminders = snapshot.data ?? [];
-          if (reminders.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    _showOnlyActive ? Icons.check_circle_outline : Icons.event_note,
-                    size: 80,
-                    color: Colors.grey[400],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    _showOnlyActive
-                        ? 'Nenhum lembrete ativo'
-                        : 'Nenhum lembrete cadastrado',
-                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Toque no + para adicionar',
-                    style: TextStyle(color: Colors.grey[500]),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          // Lista de lembretes
-          return ListView.builder(
-            itemCount: reminders.length,
-            padding: const EdgeInsets.only(top: 8, bottom: 80),
-            itemBuilder: (context, index) {
-              final reminder = reminders[index];
-              return _buildReminderCard(reminder);
-            },
-          );
-        },
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _reminders.isEmpty
+              ? _buildEmptyState()
+              : _buildRemindersList(),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _navigateToAddEdit(null),
         tooltip: 'Adicionar Lembrete',
@@ -115,14 +92,54 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Estado vazio
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            _showOnlyActive ? Icons.check_circle_outline : Icons.event_note,
+            size: 80,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _showOnlyActive
+                ? 'Nenhum lembrete ativo'
+                : 'Nenhum lembrete cadastrado',
+            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Toque no + para adicionar',
+            style: TextStyle(color: Colors.grey[500]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Lista de lembretes
+  Widget _buildRemindersList() {
+    return ListView.builder(
+      itemCount: _reminders.length,
+      padding: const EdgeInsets.only(top: 8, bottom: 80),
+      itemBuilder: (context, index) {
+        final reminder = _reminders[index];
+        return _buildReminderCard(reminder);
+      },
+    );
+  }
+
   // Widget do card de lembrete
   Widget _buildReminderCard(Reminder reminder) {
-    final dateFormat = DateFormat('dd/MM/yyyy');
+    final dateFormat = DateFormat('dd/MM/yyyy', 'pt_BR');
     final timeFormat = DateFormat('HH:mm');
     final isPast = reminder.dateTime.isBefore(DateTime.now());
 
     return Dismissible(
-      key: Key(reminder.id!),
+      key: Key(reminder.id.toString()),
       direction: DismissDirection.endToStart,
       background: Container(
         alignment: Alignment.centerRight,
@@ -172,7 +189,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
-                          decoration: reminder.isActive ? null : TextDecoration.lineThrough,
+                          decoration: reminder.isActive
+                              ? null
+                              : TextDecoration.lineThrough,
                         ),
                       ),
                     ),
@@ -192,14 +211,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Icon(Icons.event, size: 16, color: Colors.white70),
+                    const Icon(Icons.event, size: 16, color: Colors.white70),
                     const SizedBox(width: 4),
                     Text(
                       dateFormat.format(reminder.dateTime),
                       style: const TextStyle(color: Colors.white70),
                     ),
                     const SizedBox(width: 16),
-                    Icon(Icons.access_time, size: 16, color: Colors.white70),
+                    const Icon(Icons.access_time, size: 16, color: Colors.white70),
                     const SizedBox(width: 4),
                     Text(
                       timeFormat.format(reminder.dateTime),
@@ -207,7 +226,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const Spacer(),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.white24,
                         borderRadius: BorderRadius.circular(12),
@@ -232,13 +252,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // Navegar para tela de adicionar/editar
-  void _navigateToAddEdit(Reminder? reminder) {
-    Navigator.push(
+  void _navigateToAddEdit(Reminder? reminder) async {
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => AddEditScreen(reminder: reminder),
       ),
     );
+
+    // Recarregar lista após adicionar/editar
+    if (result == true) {
+      _loadReminders();
+    }
   }
 
   // Deletar lembrete
@@ -247,8 +272,11 @@ class _HomeScreenState extends State<HomeScreen> {
       // Cancelar notificação
       await _notificationService.cancelNotification(reminder.id!);
 
-      // Deletar do Firestore
-      await _firestoreService.deleteReminder(reminder.id!);
+      // Deletar do banco de dados
+      await _databaseService.deleteReminder(reminder.id!);
+
+      // Recarregar lista
+      _loadReminders();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
